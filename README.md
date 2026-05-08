@@ -1,0 +1,1 @@
+# 241229047-tasarim-oruntuleri-odev
