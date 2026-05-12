@@ -1,66 +1,83 @@
-class NotificationManager:
+from abc import ABC, abstractmethod
+
+class Notification(ABC):
+    @abstractmethod
+    def send(self, message: str, target: str, attachment: str = None) -> bool:
+        pass
+
+class EmailNotification(Notification):
     def __init__(self):
-        self.email_host = "smtp.mail.com"
-        self.email_port = 587
-        self.sms_api_key = "12345-ABCDE"
-        self.push_secret = "FIREBASE_SECRET_999"
+        self.smtp_host = "smtp.mail.com"
+        self.smtp_port = 587
 
-    def send_notification(self, notif_type, message, target, attachment=None):
-        print(
-            f"Sistem logu: '{notif_type}' tipi için gönderim süreci başlatildi ")
-
-        if notif_type == "Email":
-            if "@" not in target:
-                print("Hata: Gecersiz e-posta adresi formati \n")
-                return False
-
-            print(f"[{self.email_host}:{self.email_port}] adresine baglaniliyor")
-            print(f"Email Gönderiliyor -> Alici: {target}\nİçerik: {message}")
-            if attachment:
-                print(f"Ek dosya eklendi: {attachment}")
-            print("Durum: Basarili.\n")
-            return True
-
-        elif notif_type == "SMS":
-            if len(message) > 160:
-                print("Hata: SMS 160 karakterden uzun olamaz\n")
-                return False
-            if not str(target).startswith("+90"):
-                print("Sadece Türkiye (+90) numaralarina SMS atilabilir!\n")
-                return False
-
-            print(
-                f"API Key ({self.sms_api_key}) ile SMS servisine yetkilendirme yapiliyor ")
-            print(f"SMS Gönderiliyor Tel: {target}\nİçerik: {message}")
-            if attachment:
-                print("Uyari SMSe ek dosya eklenemez eklenti yoksayildi")
-            print("Durum: Basarili\n")
-            return True
-
-        elif notif_type == "Push":
-            if not target:
-                print("Hata Cihaz tokeni eksik\n")
-                return False
-
-            print(
-                f"Firebase secret ({self.push_secret}) ile baglanti kuruluyor")
-            print(f"Push Gönderiliyor  Cihaz: {target}\nİçerik: {message}")
-            print("Durum: Başarili.\n")
-            return True
-
-        else:
-            print(
-                f"Kritik Hata: '{notif_type}' sistem tarafindan desteklenmiyor\n")
+    def send(self, message: str, target: str, attachment: str = None) -> bool:
+        if "@" not in target:
+            print(f"Gecersiz e-posta adresi: {target}")
             return False
+        
+        print(f"SMTP baglantisi kuruldu ({self.smtp_host}:{self.smtp_port})")
+        print(f"[EMAIL] Kime: {target} | Mesaj: {message}")
+        
+        if attachment:
+            print(f"[EMAIL] Eklenen dosya: {attachment}")
+            
+        return True
 
+class SMSNotification(Notification):
+    def __init__(self):
+        self.api_key = "12345-ABCDE" 
+
+    def send(self, message: str, target: str, attachment: str = None) -> bool:
+        if len(message) > 160:
+            print("SMS metni 160 karakteri gecemez.")
+            return False
+            
+        if not str(target).startswith("+90"):
+            print("Sadece yurt ici (+90) numaralara SMS gonderilebilir.")
+            return False
+        
+        if attachment:
+            print("SMS eklenti desteklemiyor, ek dosyalar yoksayildi.")
+            
+        print(f"[SMS] {target} numarasina iletildi. API Key: {self.api_key[:5]}***")
+        return True
+
+class PushNotification(Notification):
+    def __init__(self):
+        self.secret = "FIREBASE_SECRET_999"
+
+    def send(self, message: str, target: str, attachment: str = None) -> bool:
+        if not target:
+            print("Cihaz token'i bulunamadi.")
+            return False
+        
+        print(f"Cihaz: {target} | Bildirim gonderildi.")
+        return True
+
+class NotificationFactory:
+    @staticmethod
+    def get_sender(notif_type: str) -> Notification:
+        providers = {
+            "email": EmailNotification,
+            "sms": SMSNotification,
+            "push": PushNotification
+        }
+        
+        sender_class = providers.get(notif_type.lower())
+        if not sender_class:
+            raise ValueError(f"Desteklenmeyen bildirim tipi: '{notif_type}'")
+            
+        return sender_class()
 
 if __name__ == "__main__":
-    manager = NotificationManager()
-
-    manager.send_notification(
-        "Email", "Faturaniz ektedir.", "musteri@sirket.com", attachment="fatura_pdf")
-    manager.send_notification("SMS", "Kargonuz yola cikti.", "+905551234567")
-
-    manager.send_notification("Email", "Merhaba", "hatali-mail-adresi")
-    manager.send_notification(
-        "SMS", "Kisa mesaj", "+12025550123", attachment="gizli_dosya.zip")
+    factory = NotificationFactory()
+    
+    email = factory.get_sender("email")
+    email.send("Faturaniz ektedir.", "musteri@sirket.com", attachment="fatura_mayis.pdf")
+    print("-" * 40)
+    
+    sms = factory.get_sender("sms")
+    sms.send("Kargonuz yola cikti.", "+905551234567", attachment="kargo_belgesi.png")
+    print("-" * 40)
+    
+    email.send("Merhaba", "hatali-mail-adresi")

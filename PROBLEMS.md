@@ -7,7 +7,8 @@
 
 # Ai Bulduğu Sorunlar Ve İkisinin Arasındaki Farklar
 
-Ai Cevapları : Hardcoded Credentials — API key ve şifreler doğrudan kod içine gömülmüş, güvenlik riski oluşturuyor.
+Ai Cevapları : 
+Hardcoded Credentials — API key ve şifreler doğrudan kod içine gömülmüş, güvenlik riski oluşturuyor.
 SRP İhlali — send_notification tek başına validasyon, yönlendirme ve gönderim yapıyor.
 OCP İhlali — Yeni kanal eklemek için mevcut if/elif zincirine müdahale etmek gerekiyor.
 Dağınık Validasyon — Her kanalın validasyonu gönderim mantığıyla iç içe geçmiş.
