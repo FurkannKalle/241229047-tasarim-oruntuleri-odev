@@ -1,83 +1,97 @@
 from abc import ABC, abstractmethod
 
+
 class Notification(ABC):
     @abstractmethod
     def send(self, message: str, target: str, attachment: str = None) -> bool:
         pass
 
+
 class EmailNotification(Notification):
     def __init__(self):
-        self.smtp_host = "smtp.mail.com"
-        self.smtp_port = 587
+        self.host = "smtp.mail.com"
+        self.port = 587
 
     def send(self, message: str, target: str, attachment: str = None) -> bool:
-        if "@" not in target:
-            print(f"Gecersiz e-posta adresi: {target}")
-            return False
-        
-        print(f"SMTP baglantisi kuruldu ({self.smtp_host}:{self.smtp_port})")
-        print(f"[EMAIL] Kime: {target} | Mesaj: {message}")
-        
-        if attachment:
-            print(f"[EMAIL] Eklenen dosya: {attachment}")
-            
+        print(f"[{self.host}:{self.port}] baglanti kuruluyor")
+        print(f"Email Alici: {target} | Icerik: {message}")
         return True
+
 
 class SMSNotification(Notification):
-    def __init__(self):
-        self.api_key = "12345-ABCDE" 
-
     def send(self, message: str, target: str, attachment: str = None) -> bool:
-        if len(message) > 160:
-            print("SMS metni 160 karakteri gecemez.")
-            return False
-            
-        if not str(target).startswith("+90"):
-            print("Sadece yurt ici (+90) numaralara SMS gonderilebilir.")
-            return False
-        
-        if attachment:
-            print("SMS eklenti desteklemiyor, ek dosyalar yoksayildi.")
-            
-        print(f"[SMS] {target} numarasina iletildi. API Key: {self.api_key[:5]}***")
+        print(f"SMS Tel: {target} | Icerik: {message}")
         return True
+
 
 class PushNotification(Notification):
+    def send(self, message: str, target: str, attachment: str = None) -> bool:
+        print(f"Push Cihaz: {target} | Icerik: {message}")
+        return True
+
+
+class WhatsAppClient:
+    def push_message(self, text: str, contact_number: str):
+        print(f"WA API {contact_number}: {text}")
+        return "SUCCESS"
+
+
+class WhatsAppAdapter(Notification):
     def __init__(self):
-        self.secret = "FIREBASE_SECRET_999"
+        self.api = WhatsAppClient()
 
     def send(self, message: str, target: str, attachment: str = None) -> bool:
-        if not target:
-            print("Cihaz token'i bulunamadi.")
-            return False
-        
-        print(f"Cihaz: {target} | Bildirim gonderildi.")
-        return True
+        res = self.api.push_message(text=message, contact_number=target)
+        return res == "SUCCESS"
+
+
+class NotificationDecorator(Notification):
+    def __init__(self, base_notif: Notification):
+        self._base = base_notif
+
+    def send(self, message: str, target: str, attachment: str = None) -> bool:
+        return self._base.send(message, target, attachment)
+
+
+class EncryptedNotification(NotificationDecorator):
+    def send(self, message: str, target: str, attachment: str = None) -> bool:
+        enc_msg = f"ENC[{message[::-1]}]"
+        return super().send(enc_msg, target, attachment)
+
+
+class LoggingNotification(NotificationDecorator):
+    def send(self, message: str, target: str, attachment: str = None) -> bool:
+        print(f"INFO: {target} icin gonderim basladi.")
+        res = super().send(message, target, attachment) 
+        print(f"gonderim bitti. sonuc={res}\n")
+        return res
+
 
 class NotificationFactory:
     @staticmethod
-    def get_sender(notif_type: str) -> Notification:
+    def create_notification(notif_type: str) -> Notification:
         providers = {
-            "email": EmailNotification,
-            "sms": SMSNotification,
-            "push": PushNotification
+            "Email": EmailNotification,
+            "SMS": SMSNotification,
+            "Push": PushNotification,
+            "WhatsApp": WhatsAppAdapter
         }
-        
-        sender_class = providers.get(notif_type.lower())
-        if not sender_class:
-            raise ValueError(f"Desteklenmeyen bildirim tipi: '{notif_type}'")
-            
-        return sender_class()
+
+        if notif_type not in providers:
+            raise ValueError(f"Desteklenmeyen tip: {notif_type}")
+
+        return providers[notif_type]()
+
 
 if __name__ == "__main__":
     factory = NotificationFactory()
-    
-    email = factory.get_sender("email")
-    email.send("Faturaniz ektedir.", "musteri@sirket.com", attachment="fatura_mayis.pdf")
+
+    wa = factory.create_notification("WhatsApp")
+    wa.send("Siparis Alindi ", "+905551234567")
+
     print("-" * 40)
-    
-    sms = factory.get_sender("sms")
-    sms.send("Kargonuz yola cikti.", "+905551234567", attachment="kargo_belgesi.png")
-    print("-" * 40)
-    
-    email.send("Merhaba", "hatali-mail-adresi")
+
+    sms = factory.create_notification("SMS")
+    secure_sms = LoggingNotification(EncryptedNotification(sms)) 
+
+    secure_sms.send("Gizli Doğrulama Kodu: 9876", "+905559998877")
