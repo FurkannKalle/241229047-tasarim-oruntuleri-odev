@@ -2,7 +2,6 @@
 
 Aşağıdaki diyagram spagetti koddan kurtarılarak Tasarım Örüntüleri ile yeniden yazılan bildirim sisteminin son mimarisini göstermektedir.
 
-
 ```mermaid
 classDiagram
     class NotificationFactory {
@@ -27,3 +26,4 @@ classDiagram
     NotificationInvoker o-- SendNotificationCommand : Komutlari kuyrukta tutar
     SendNotificationCommand --> EventManager : Islem bitince olay tetikler
     EventManager --> Listeners : Dinleyicilere haber verir
+```

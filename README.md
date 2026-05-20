@@ -38,7 +38,7 @@ classDiagram
     NotificationInvoker o-- SendNotificationCommand : Komutlari kuyrukta tutar
     SendNotificationCommand --> EventManager : Islem bitince olay tetikler
     EventManager --> Listeners : Dinleyicilere haber verir
-
+```
 
 
 Nasıl Çalıştırılır ? :
@@ -48,6 +48,8 @@ Nasıl Çalıştırılır ? :
 2- Terminalden projenin ana dizinine gidin.
 
 3-Aşağıdaki komutu çalıştırarak sistemi başlatın: 
+```bash
 python src/notification_system.py
+```
 
 
