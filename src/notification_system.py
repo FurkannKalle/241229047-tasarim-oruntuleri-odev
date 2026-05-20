@@ -1,10 +1,10 @@
 from abc import ABC, abstractmethod
-from typing import Callable, Dict, List
+from typing import Callable, Dict, List, Optional
 
 
 class Notification(ABC):
     @abstractmethod
-    def send(self, message: str, target: str, attachment: str = None) -> bool:
+    def send(self, message: str, target: str, attachment: Optional[str] = None) -> bool:
         pass
 
 
@@ -13,20 +13,20 @@ class EmailNotification(Notification):
         self.host = "smtp.mail.com"
         self.port = 587
 
-    def send(self, message: str, target: str, attachment: str = None) -> bool:
+    def send(self, message: str, target: str, attachment: Optional[str] = None) -> bool:
         print(f"[{self.host}:{self.port}] Baglanti kuruldu")
         print(f"Email -> {target} | Mesaj: {message}")
         return True
 
 
 class SMSNotification(Notification):
-    def send(self, message: str, target: str, attachment: str = None) -> bool:
+    def send(self, message: str, target: str, attachment: Optional[str] = None) -> bool:
         print(f"SMS -> {target} | Mesaj: {message}")
         return True
 
 
 class PushNotification(Notification):
-    def send(self, message: str, target: str, attachment: str = None) -> bool:
+    def send(self, message: str, target: str, attachment: Optional[str] = None) -> bool:
         print(f"Push -> {target} | Mesaj: {message}")
         return True
 
@@ -41,7 +41,7 @@ class WhatsAppAdapter(Notification):
     def __init__(self):
         self.api = WhatsAppClient()
 
-    def send(self, message: str, target: str, attachment: str = None) -> bool:
+    def send(self, message: str, target: str, attachment: Optional[str] = None) -> bool:
         res = self.api.push_message(text=message, contact_number=target)
         return res == "SUCCESS"
 
@@ -50,12 +50,12 @@ class NotificationDecorator(Notification):
     def __init__(self, base_notif: Notification):
         self._base = base_notif
 
-    def send(self, message: str, target: str, attachment: str = None) -> bool:
+    def send(self, message: str, target: str, attachment: Optional[str] = None) -> bool:
         return self._base.send(message, target, attachment)
 
 
 class EncryptedNotification(NotificationDecorator):
-    def send(self, message: str, target: str, attachment: str = None) -> bool:
+    def send(self, message: str, target: str, attachment: Optional[str] = None) -> bool:
         enc_msg = f"ENC[{message[::-1]}]"
         return super().send(enc_msg, target, attachment)
 
