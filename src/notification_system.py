@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from typing import Callable, Dict, List
 
 
 class Notification(ABC):
@@ -13,26 +14,26 @@ class EmailNotification(Notification):
         self.port = 587
 
     def send(self, message: str, target: str, attachment: str = None) -> bool:
-        print(f"[{self.host}:{self.port}] baglanti kuruluyor")
-        print(f"Email Alici: {target} | Icerik: {message}")
+        print(f"[{self.host}:{self.port}] Baglanti kuruldu")
+        print(f"Email -> {target} | Mesaj: {message}")
         return True
 
 
 class SMSNotification(Notification):
     def send(self, message: str, target: str, attachment: str = None) -> bool:
-        print(f"SMS Tel: {target} | Icerik: {message}")
+        print(f"SMS -> {target} | Mesaj: {message}")
         return True
 
 
 class PushNotification(Notification):
     def send(self, message: str, target: str, attachment: str = None) -> bool:
-        print(f"Push Cihaz: {target} | Icerik: {message}")
+        print(f"Push -> {target} | Mesaj: {message}")
         return True
 
 
 class WhatsAppClient:
     def push_message(self, text: str, contact_number: str):
-        print(f"WA API {contact_number}: {text}")
+        print(f"WhatsApp {contact_number}: {text}")
         return "SUCCESS"
 
 
@@ -59,39 +60,124 @@ class EncryptedNotification(NotificationDecorator):
         return super().send(enc_msg, target, attachment)
 
 
-class LoggingNotification(NotificationDecorator):
-    def send(self, message: str, target: str, attachment: str = None) -> bool:
-        print(f"INFO: {target} icin gonderim basladi.")
-        res = super().send(message, target, attachment) 
-        print(f"gonderim bitti. sonuc={res}\n")
-        return res
-
-
 class NotificationFactory:
-    @staticmethod
-    def create_notification(notif_type: str) -> Notification:
-        providers = {
-            "Email": EmailNotification,
-            "SMS": SMSNotification,
-            "Push": PushNotification,
-            "WhatsApp": WhatsAppAdapter
-        }
+    def __init__(self):
+        self._providers: Dict[str, Callable[[], Notification]] = {}
 
-        if notif_type not in providers:
+    def register_provider(self, notif_type: str, provider: Callable[[], Notification]):
+        self._providers[notif_type] = provider
+
+    def create_notification(self, notif_type: str) -> Notification:
+        if notif_type not in self._providers:
             raise ValueError(f"Desteklenmeyen tip: {notif_type}")
+        return self._providers[notif_type]()
 
-        return providers[notif_type]()
+
+class EventManager:
+    def __init__(self):
+        self._listeners: Dict[str, List[Callable]] = {}
+
+    def subscribe(self, event_type: str, listener: Callable):
+        if event_type not in self._listeners:
+            self._listeners[event_type] = []
+        self._listeners[event_type].append(listener)
+
+    def notify(self, event_type: str, data: dict):
+        for listener in self._listeners.get(event_type, []):
+            listener(data)
+
+
+def audit_logger_listener(data: dict):
+    print(f"[KAYIT] Islem: {data['event']} | Hedef: {data['target']} | Sonuc: {data['status']}")
+
+
+def analytics_listener(data: dict):
+    print("[ISTATISTIK] Yeni bildirim islemi tamamlandi")
+
+
+class Command(ABC):
+    @abstractmethod
+    def execute(self) -> None:
+        pass
+
+
+class SendNotificationCommand(Command):
+    def __init__(self, notification: Notification, message: str, target: str, event_manager: EventManager):
+        self.notification = notification
+        self.message = message
+        self.target = target
+        self.event_manager = event_manager
+
+    def execute(self) -> None:
+        try:
+            result = self.notification.send(self.message, self.target)
+            self.event_manager.notify(
+                "notification_sent",
+                {
+                    "event": "send",
+                    "target": self.target,
+                    "status": result
+                }
+            )
+        except Exception as e:
+            self.event_manager.notify(
+                "notification_failed",
+                {
+                    "event": "send",
+                    "target": self.target,
+                    "status": "Error",
+                    "error": str(e)
+                }
+            )
+
+
+class NotificationInvoker:
+    def __init__(self):
+        self._commands: List[Command] = []
+
+    def add_command(self, command: Command):
+        self._commands.append(command)
+
+    def execute_commands(self):
+        for command in self._commands:
+            command.execute()
+        self._commands.clear()
 
 
 if __name__ == "__main__":
+    event_manager = EventManager()
+
+    event_manager.subscribe("notification_sent", audit_logger_listener)
+    event_manager.subscribe("notification_sent", analytics_listener)
+
     factory = NotificationFactory()
 
-    wa = factory.create_notification("WhatsApp")
-    wa.send("Siparis Alindi ", "+905551234567")
+    factory.register_provider("Email", EmailNotification)
+    factory.register_provider("SMS", SMSNotification)
+    factory.register_provider("WhatsApp", WhatsAppAdapter)
 
-    print("-" * 40)
+    wa_notif = factory.create_notification("WhatsApp")
+    sms_notif = EncryptedNotification(factory.create_notification("SMS"))
 
-    sms = factory.create_notification("SMS")
-    secure_sms = LoggingNotification(EncryptedNotification(sms)) 
+    invoker = NotificationInvoker()
 
-    secure_sms.send("Gizli Doğrulama Kodu: 9876", "+905559998877")
+    cmd1 = SendNotificationCommand(
+        wa_notif,
+        "Siparis Alindi",
+        "+905551234567",
+        event_manager
+    )
+
+    cmd2 = SendNotificationCommand(
+        sms_notif,
+        "Gizli Kod: 9876",
+        "+905559998877",
+        event_manager
+    )
+
+    invoker.add_command(cmd1)
+    invoker.add_command(cmd2)
+
+    print("--- Bildirimler Gonderiliyor ---\n")
+
+    invoker.execute_commands()
