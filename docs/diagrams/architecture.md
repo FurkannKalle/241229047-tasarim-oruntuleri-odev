@@ -19,9 +19,11 @@ classDiagram
         +subscribe(event, listener)
         +notify(event, data)
     }
+    class Listeners {
+        <<Observer>>
+    }
     
-    NotificationFactory --> SendNotificationCommand : Kullanılacak bildirim servisini üretir
-    NotificationInvoker o-- SendNotificationCommand : Komutları kuyrukta tutar
-    SendNotificationCommand --> EventManager : İşlem bitince olay tetikler
-    EventManager --> "Listeners (Log/Analytics)" : Dinleyicilere haber verir
-```
+    NotificationFactory --> SendNotificationCommand : Bildirim servisini uretir
+    NotificationInvoker o-- SendNotificationCommand : Komutlari kuyrukta tutar
+    SendNotificationCommand --> EventManager : Islem bitince olay tetikler
+    EventManager --> Listeners : Dinleyicilere haber verir
